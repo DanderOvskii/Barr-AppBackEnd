@@ -12,3 +12,6 @@ sudo /opt/lampp/manager-linux-x64.run
 
 start fast api: 
 fastapi dev main.py
+
+open phpmyadmin:
+http://localhost/phpmyadmin/
