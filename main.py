@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from database import get_session, init_db
-from crud import  get_products,get_categories,get_categories_with_products,update_product
+from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db
 from models import Products,Categories,CategoryWithProducts
 
 app = FastAPI()
@@ -34,4 +34,11 @@ def read_categories_with_products(session: Session = Depends(get_session)):
 @app.put("/ProductManager/{productId}", response_model=Products)
 def update_item(productId: int, updated_product: Products, session: Session = Depends(get_session)):
     return update_product(session, productId, updated_product)
+
+@app.post("/ProductManager/", response_model=Products, status_code=status.HTTP_201_CREATED)
+def create_product(product: Products, session: Session = Depends(get_session)):
+    try:
+        return create_product_db(session, product)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 

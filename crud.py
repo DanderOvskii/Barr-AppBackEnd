@@ -54,3 +54,23 @@ def update_product(session: Session, product_id: int, updated_product: Products)
     session.refresh(product)
     return product
 
+def create_product_db(session: Session, product: Products):
+    # Verify if category exists
+    category = session.get(Categories, product.category_id)
+    if not category:
+        raise ValueError(f"Category with id {product.category_id} does not exist")
+    
+    # Create new product
+    db_product = Products(
+        name=product.name,
+        price=product.price,
+        category_id=product.category_id,
+        calorien=product.calorien,
+        alcohol=product.alcohol
+    )
+    
+    session.add(db_product)
+    session.commit()
+    session.refresh(db_product)
+    return db_product
+
