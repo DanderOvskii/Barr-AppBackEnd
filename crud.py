@@ -74,3 +74,11 @@ def create_product_db(session: Session, product: Products):
     session.refresh(db_product)
     return db_product
 
+def delete_product(session: Session, product_id: int):
+    product = session.get(Products, product_id)
+    if not product:
+        raise ValueError("Product not found")
+    
+    session.delete(product)
+    session.commit()
+    return {"message": "Product deleted successfully"}
