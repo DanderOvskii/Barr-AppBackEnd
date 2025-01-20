@@ -66,7 +66,9 @@ def create_product_db(session: Session, product: Products):
         price=product.price,
         category_id=product.category_id,
         calorien=product.calorien,
-        alcohol=product.alcohol
+        alcohol=product.alcohol,
+        vooraad=product.vooraad,
+        korting=product.korting,
     )
     
     session.add(db_product)
@@ -82,3 +84,7 @@ def delete_product(session: Session, product_id: int):
     session.delete(product)
     session.commit()
     return {"message": "Product deleted successfully"}
+
+def search_products(session: Session, query: str):
+    statement = select(Products).where(Products.name.contains(query))
+    return session.exec(statement).all()

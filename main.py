@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from database import get_session, init_db
-from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product
+from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products
 from models import Products,Categories,CategoryWithProducts
 
 app = FastAPI()
@@ -49,3 +49,9 @@ def delete_item(productId: int, session: Session = Depends(get_session)):
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
+
+@app.get("/search", response_model=list[Products])
+def search_items(q: str, session: Session = Depends(get_session)):
+    results = search_products(session, q)
+    print('Search Results:', results)  # Print the data
+    return results

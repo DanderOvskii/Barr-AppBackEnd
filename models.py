@@ -8,6 +8,8 @@ class Products(SQLModel, table=True):
     category_id: Optional[int] = Field(default=None)
     calorien: float
     alcohol: float
+    vooraad: int
+    korting:int
 
 class Categories(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
