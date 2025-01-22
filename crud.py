@@ -1,6 +1,6 @@
 from sqlmodel import Session, select
-from models import Products,Categories,CategoryWithProducts
-
+from models import Products,Categories,CategoryWithProducts,User
+from auth import get_password_hash, verify_password
 
 def get_products(session: Session, categoryId: int = None):
     statement = (
@@ -88,3 +88,23 @@ def delete_product(session: Session, product_id: int):
 def search_products(session: Session, query: str):
     statement = select(Products).where(Products.name.contains(query))
     return session.exec(statement).all()
+
+def get_user_by_username(session: Session, username: str):
+    statement = select(User).where(User.username == username)
+    return session.exec(statement).first()
+
+def create_user(session: Session, username: str, password: str):
+    hashed_password = get_password_hash(password)
+    db_user = User(username=username, password=hashed_password)
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
+    return db_user
+
+def authenticate_user(session: Session, username: str, password: str):
+    user = get_user_by_username(session, username)
+    if not user:
+        return False
+    if not verify_password(password, user.password):
+        return False
+    return user

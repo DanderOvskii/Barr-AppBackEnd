@@ -2,10 +2,14 @@ from fastapi import FastAPI, Depends, HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from database import get_session, init_db
-from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products
-from models import Products,Categories,CategoryWithProducts
+from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user
+from models import Products,Categories,CategoryWithProducts,User
+from fastapi.security import OAuth2PasswordRequestForm
+from auth import create_access_token
+
 
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8081"],  # Adjust this to your frontend's origin
@@ -55,3 +59,33 @@ def search_items(q: str, session: Session = Depends(get_session)):
     results = search_products(session, q)
     print('Search Results:', results)  # Print the data
     return results
+
+@app.post("/register")
+def register_user(
+    username: str,
+    password: str,
+    session: Session = Depends(get_session)
+):
+    db_user = get_user_by_username(session, username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    return create_user(session, username, password)
+
+@app.post("/token")
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    session: Session = Depends(get_session)
+):
+    user = authenticate_user(session, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+
+
