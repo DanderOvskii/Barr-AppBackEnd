@@ -87,5 +87,8 @@ def login(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-
+@app.get("/verify-token/{token}")
+async def verify_token(token: str):
+    verify_token(token=token)
+    return {"token": token}
 
