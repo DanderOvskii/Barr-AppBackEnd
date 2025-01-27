@@ -1,6 +1,7 @@
 from sqlmodel import Session, select
-from models import Products,Categories,CategoryWithProducts,User
+from models import Products,Categories,CategoryWithProducts,User,UserStats
 from auth import get_password_hash, verify_password
+from datetime import date
 
 def get_products(session: Session, categoryId: int = None):
     statement = (
@@ -15,7 +16,6 @@ def get_products(session: Session, categoryId: int = None):
 
 def get_categories(session: Session):
     return session.exec(select(Categories)).all()
-
 
 def get_categories_with_products(session: Session):
     statement = (
@@ -38,8 +38,6 @@ def get_categories_with_products(session: Session):
         result.append(category_data)
     
     return result
-
-
 
 def update_product(session: Session, product_id: int, updated_product: Products):
     product = session.get(Products, product_id)
@@ -93,12 +91,13 @@ def get_user_by_username(session: Session, username: str):
     statement = select(User).where(User.username == username)
     return session.exec(statement).first()
 
-def create_user(session: Session, username: str, password: str):
+def create_user(session: Session, username: str, password: str,birthdate: date):
     hashed_password = get_password_hash(password)
-    db_user = User(username=username, password=hashed_password)
+    db_user = User(username=username, password=hashed_password,birthdate=birthdate)
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
+    create_user_stats(session, db_user.id)
     return db_user
 
 def authenticate_user(session: Session, username: str, password: str):
@@ -108,3 +107,14 @@ def authenticate_user(session: Session, username: str, password: str):
     if not verify_password(password, user.password):
         return False
     return user
+
+def create_user_stats(session: Session, user_id: int):
+    user_stats = UserStats(user_id=user_id)
+    session.add(user_stats)
+    session.commit()
+    session.refresh(user_stats)
+    return user_stats
+
+def get_user_stats(session: Session, user_id: int):
+    statement = select(UserStats).where(UserStats.user_id == user_id)
+    return session.exec(statement).first()

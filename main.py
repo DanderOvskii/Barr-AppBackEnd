@@ -2,14 +2,15 @@ from fastapi import FastAPI, Depends, HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from database import get_session, init_db
-from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user
+from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats
 from models import Products,Categories,CategoryWithProducts,User
-from fastapi.security import OAuth2PasswordRequestForm
-from auth import create_access_token
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from auth import create_access_token, verify_token
+from datetime import date
 
 
 app = FastAPI()
-
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8081"],  # Adjust this to your frontend's origin
@@ -64,12 +65,15 @@ def search_items(q: str, session: Session = Depends(get_session)):
 def register_user(
     username: str,
     password: str,
+    birthdate: date,
     session: Session = Depends(get_session)
 ):
     db_user = get_user_by_username(session, username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    return create_user(session, username, password)
+    user = create_user(session, username, password,birthdate)
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/token")
 def login(
@@ -87,8 +91,31 @@ def login(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+
 @app.get("/verify-token/{token}")
-async def verify_token(token: str):
+async def verify_token_token(token: str):
     verify_token(token=token)
     return {"token": token}
+
+@app.get("/users/me", response_model=dict)
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    session: Session = Depends(get_session)
+):
+    try:
+        username = verify_token(token)
+        user = get_user_by_username(session, username)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        user_stats = get_user_stats(session, user.id)
+        return {
+            "id": user.id,
+            "username": user.username,
+            "wallet": user_stats.wallet if user_stats else 0.0
+        }
+    except HTTPException as e:
+        raise e
 

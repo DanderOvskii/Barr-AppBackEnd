@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field
+from datetime import date
 from typing import Optional, List
 
 class Products(SQLModel, table=True):
@@ -24,3 +25,11 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(unique=True)
     password: str  # Hashed password
+    birthdate: date
+
+
+class UserStats(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id") 
+    wallet: float = Field(default=0.0)
+    calories: float = Field(default=0.0)
