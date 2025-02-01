@@ -118,4 +118,39 @@ async def get_current_user(
         }
     except HTTPException as e:
         raise e
+    
+@app.post("/buy/{product_id}")
+async def buy_product(
+    product_id: int,
+    token: str = Depends(oauth2_scheme),
+    session: Session = Depends(get_session)
+):
+    # Verify user
+    username = verify_token(token)
+    user = get_user_by_username(session, username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get product
+    product = session.get(Products, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Get user stats
+    user_stats = get_user_stats(session, user.id)
+    if not user_stats:
+        raise HTTPException(status_code=404, detail="User stats not found")
+    
+
+    # Update wallet and product inventory
+    user_stats.wallet -= product.price
+    product.vooraad -= 1
+    
+    session.commit()
+    
+    return {
+        "message": "Purchase successful",
+        "new_balance": user_stats.wallet,
+        "product_name": product.name
+    }
 

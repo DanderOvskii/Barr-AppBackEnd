@@ -118,3 +118,13 @@ def create_user_stats(session: Session, user_id: int):
 def get_user_stats(session: Session, user_id: int):
     statement = select(UserStats).where(UserStats.user_id == user_id)
     return session.exec(statement).first()
+
+def update_wallet(session: Session, user_id: int, amount: float):
+    user_stats = get_user_stats(session, user_id)
+    if not user_stats:
+        raise ValueError("User stats not found")
+    user_stats.wallet += amount
+    session.commit()
+    session.refresh(user_stats)
+    return user_stats
+
