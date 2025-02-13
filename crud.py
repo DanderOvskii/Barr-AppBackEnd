@@ -2,6 +2,7 @@ from sqlmodel import Session, select
 from models import Products,Categories,CategoryWithProducts,User,UserStats
 from auth import get_password_hash, verify_password
 from datetime import date
+from decimal import Decimal
 
 def get_products(session: Session, categoryId: int = None):
     statement = (
@@ -62,6 +63,7 @@ def create_product_db(session: Session, product: Products):
     db_product = Products(
         name=product.name,
         price=product.price,
+        amount=product.amount,
         category_id=product.category_id,
         calorien=product.calorien,
         alcohol=product.alcohol,
@@ -85,7 +87,7 @@ def delete_product(session: Session, product_id: int):
 
 def search_products(session: Session, query: str):
     statement = select(Products).where(Products.name.contains(query))
-    return session.exec(statement).all()
+    return session.exec(statement).first()
 
 def get_user_by_username(session: Session, username: str):
     statement = select(User).where(User.username == username)
@@ -119,12 +121,39 @@ def get_user_stats(session: Session, user_id: int):
     statement = select(UserStats).where(UserStats.user_id == user_id)
     return session.exec(statement).first()
 
-def update_wallet(session: Session, user_id: int, amount: float):
-    user_stats = get_user_stats(session, user_id)
+
+def update_user(session: Session, username: str, user_data: dict):
+    # Get user and their stats
+    user = get_user_by_username(session, username)
+    if not user:
+        raise ValueError("User not found")
+    
+    user_stats = get_user_stats(session, user.id)
     if not user_stats:
         raise ValueError("User stats not found")
-    user_stats.wallet += amount
-    session.commit()
-    session.refresh(user_stats)
-    return user_stats
 
+    # Update username if provided and different
+    if user_data.get("username") and user_data["username"] != user.username:
+        # Check if new username is already taken
+        existing_user = get_user_by_username(session, user_data["username"])
+        if existing_user:
+            raise ValueError("Username already taken")
+        user.username = user_data["username"]
+
+    # Update password if provided
+    if user_data.get("password"):
+        user.password = get_password_hash(user_data["password"])
+
+    # Update wallet if provided
+    if "wallet" in user_data:
+        user_stats.wallet = Decimal(str(user_data["wallet"]))
+
+    session.commit()
+    session.refresh(user)
+    session.refresh(user_stats)
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "wallet": float(user_stats.wallet)
+    }

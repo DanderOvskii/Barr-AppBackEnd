@@ -2,8 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from database import get_session, init_db
-from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats
-from models import Products,Categories,CategoryWithProducts,User
+from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats,update_user
+from models import Products,Categories,CategoryWithProducts,User,UserUpdate
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from auth import create_access_token, verify_token
 from datetime import date
@@ -144,6 +144,8 @@ async def buy_product(
 
     # Update wallet and product inventory
     user_stats.wallet -= product.price
+    user_stats.calories += product.calorien
+    user_stats.alcohol += product.amount*product.alcohol/100
     product.vooraad -= 1
     
     session.commit()
@@ -153,4 +155,31 @@ async def buy_product(
         "new_balance": user_stats.wallet,
         "product_name": product.name
     }
-
+    
+@app.put("/users/update", response_model=dict)
+async def update_user_endpoint(
+    user_data: dict,
+    token: str = Depends(oauth2_scheme),
+    session: Session = Depends(get_session)
+):
+    try:
+        # Verify token and get username
+        username = verify_token(token)
+        
+        # Update user
+        updated_user = update_user(session, username, user_data)
+        return updated_user
+    
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while updating user data"
+        )
+    
