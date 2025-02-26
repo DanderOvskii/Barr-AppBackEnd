@@ -122,9 +122,9 @@ def get_user_stats(session: Session, user_id: int):
     return session.exec(statement).first()
 
 
-def update_user(session: Session, username: str, user_data: dict):
+def update_user(session: Session, user_id: int, user_data: dict):
     # Get user and their stats
-    user = get_user_by_username(session, username)
+    user = session.get(User, user_id)
     if not user:
         raise ValueError("User not found")
     

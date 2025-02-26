@@ -72,7 +72,7 @@ def register_user(
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     user = create_user(session, username, password,birthdate)
-    access_token = create_access_token(data={"sub": user.username})
+    access_token = create_access_token(user_id=user.id)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/token")
@@ -87,7 +87,7 @@ def login(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = create_access_token(data={"sub": user.username})
+    access_token = create_access_token(user_id=user.id)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -103,8 +103,8 @@ async def get_current_user(
     session: Session = Depends(get_session)
 ):
     try:
-        username = verify_token(token)
-        user = get_user_by_username(session, username)
+        user_id = verify_token(token)
+        user = session.get(User, user_id)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -126,8 +126,8 @@ async def buy_product(
     session: Session = Depends(get_session)
 ):
     # Verify user
-    username = verify_token(token)
-    user = get_user_by_username(session, username)
+    user_id = verify_token(token)
+    user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -164,10 +164,10 @@ async def update_user_endpoint(
 ):
     try:
         # Verify token and get username
-        username = verify_token(token)
+        user_id = verify_token(token)
         
         # Update user
-        updated_user = update_user(session, username, user_data)
+        updated_user = update_user(session, user_id, user_data)
         return updated_user
     
     except ValueError as e:
