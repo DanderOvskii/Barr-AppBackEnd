@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from database import get_session, init_db
-from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats,update_user
+from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats,update_user,create_category,delete_category
 from models import Products,Categories,CategoryWithProducts,User,UserUpdate
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from auth import create_access_token, verify_token
@@ -182,4 +182,18 @@ async def update_user_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while updating user data"
         )
+    
+@app.post("/ProductManager/categories", response_model=Categories, status_code=status.HTTP_201_CREATED)
+def create_category_endpoint(category: Categories, session: Session = Depends(get_session)):
+    try:
+        return create_category(session, category.name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.delete("/ProductManager/categories/{categoryId}")
+def delete_category_endpoint(categoryId: int, session: Session = Depends(get_session)):
+    try:
+        return delete_category(session, categoryId)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     
