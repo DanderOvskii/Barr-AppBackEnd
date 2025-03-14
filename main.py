@@ -66,13 +66,14 @@ def register_user(
     username: str,
     password: str,
     birthdate: date,
+    is_admin: bool = False,
     session: Session = Depends(get_session)
 ):
     db_user = get_user_by_username(session, username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    user = create_user(session, username, password,birthdate)
-    access_token = create_access_token(user_id=user.id)
+    user = create_user(session, username, password,birthdate, is_admin)
+    access_token = create_access_token(user_id=user.id, is_admin=user.is_admin)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/token")
@@ -87,7 +88,7 @@ def login(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = create_access_token(user_id=user.id)
+    access_token = create_access_token(user_id=user.id, is_admin=user.is_admin)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -104,7 +105,7 @@ async def get_current_user(
 ):
     try:
         user_id = verify_token(token)
-        user = session.get(User, user_id)
+        user = session.get(User, user_id["user_id"])
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -114,7 +115,8 @@ async def get_current_user(
         return {
             "id": user.id,
             "username": user.username,
-            "wallet": user_stats.wallet if user_stats else 0.0
+            "wallet": user_stats.wallet if user_stats else 0.0,
+            "isAdmin": user.is_admin   
         }
     except HTTPException as e:
         raise e
@@ -127,7 +129,7 @@ async def buy_product(
 ):
     # Verify user
     user_id = verify_token(token)
-    user = session.get(User, user_id)
+    user = session.get(User, user_id["user_id"])
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -167,7 +169,7 @@ async def update_user_endpoint(
         user_id = verify_token(token)
         
         # Update user
-        updated_user = update_user(session, user_id, user_data)
+        updated_user = update_user(session, user_id["user_id"], user_data)
         return updated_user
     
     except ValueError as e:

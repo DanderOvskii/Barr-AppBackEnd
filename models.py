@@ -29,6 +29,7 @@ class User(SQLModel, table=True):
     username: str = Field(unique=True)
     password: str  # Hashed password
     birthdate: date
+    is_admin: bool = Field(default=False)
 
 
 class UserStats(SQLModel, table=True):

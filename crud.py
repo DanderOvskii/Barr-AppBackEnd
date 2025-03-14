@@ -93,9 +93,9 @@ def get_user_by_username(session: Session, username: str):
     statement = select(User).where(User.username == username)
     return session.exec(statement).first()
 
-def create_user(session: Session, username: str, password: str,birthdate: date):
+def create_user(session: Session, username: str, password: str,birthdate: date, is_admin: bool = False):
     hashed_password = get_password_hash(password)
-    db_user = User(username=username, password=hashed_password,birthdate=birthdate)
+    db_user = User(username=username, password=hashed_password,birthdate=birthdate, is_admin=is_admin)
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
