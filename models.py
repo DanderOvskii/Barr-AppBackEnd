@@ -7,7 +7,7 @@ from typing import Optional, List
 class Products(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    price: Decimal = Field(sa_column=Column(DECIMAL(10, 2, asdecimal=True)))
+    price: int
     amount: int
     category_id: Optional[int] = Field(default=None)
     calorien: float
@@ -35,11 +35,11 @@ class User(SQLModel, table=True):
 class UserStats(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id") 
-    wallet: Decimal = Field(default=Decimal('0.00'), sa_column=Column(DECIMAL(10, 2, asdecimal=True)))
+    wallet: int = Field(default=0)
     calories: float = Field(default=0.0)
     alcohol: float = Field(default=0.0)
 
 class UserUpdate(SQLModel):
     username: str
     password: Optional[str] = None
-    wallet: float
+    wallet: int

@@ -24,6 +24,14 @@ app.add_middleware(
 def on_startup():
     init_db()
 
+def cents_to_euros(cents: int) -> float:
+    """Convert cents to euros with 2 decimal places"""
+    return round(cents / 100, 2)
+
+def euros_to_cents(cents: float) -> int:
+    """Convert cents to euros with 2 decimal places"""
+    return round(cents *100)
+
 #LOGIN REGESTRATION FUNCTIONS//////////////////////////////////////////////////////////////////////////////////////////////////////
 @app.post("/register")
 def register_user(
@@ -69,7 +77,11 @@ def read_items(
     _: None = Depends(token_required),
     session: Session = Depends(get_session),
     ):
-    return get_products(session, categoryId)
+    products = get_products(session, categoryId)
+    # Convert prices to euros
+    for product in products:
+        product.price = cents_to_euros(product.price)
+    return products
 
 
 
@@ -82,7 +94,9 @@ def search_items(
     session: Session = Depends(get_session),
     ):
     results = search_products(session, q)
-    print('Search Results:', results)  # Print the data
+    # Convert prices to euros
+    for product in results:
+        product.price = cents_to_euros(product.price)
     return results
 
 
@@ -99,7 +113,7 @@ async def get_user_info(
     return {
         "id": current_user.id,
         "username": current_user.username,
-        "wallet": user_stats.wallet if user_stats else 0.0,
+        "wallet": cents_to_euros(user_stats.wallet if user_stats else 0),
         "isAdmin": current_user.is_admin
     }
     
@@ -130,25 +144,10 @@ async def buy_product(
     
     return {
         "message": "Purchase successful",
-        "new_balance": user_stats.wallet,
+        "new_balance": cents_to_euros(user_stats.wallet),
         "product_name": product.name
     }
-    
-@app.put("/users/update", response_model=dict)
-async def update_user_endpoint(
-    user_data: dict,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
-):
-
-    # Update user
-    updated_user = update_user(session, current_user.id, user_data)
-    return updated_user
-    
-
-    
-
-    
+       
 
 #PRODUCT MANAGER FUNCTIONS//////////////////////////////////////////////////////////////////////////////////////////////////////
 @app.post("/ProductManager/categories", response_model=Categories, status_code=status.HTTP_201_CREATED)
@@ -171,28 +170,69 @@ def read_categories_with_products(
     _: None = Depends(get_current_admin),
     session: Session = Depends(get_session),
 ):
-    return get_categories_with_products(session)
+    categories = get_categories_with_products(session)
+    # Convert prices to euros for all products in all categories
+    for category in categories:
+        for product in category.products:
+            product.price = cents_to_euros(product.price)
+    return categories
 
 @app.put("/ProductManager/{productId}", response_model=Products)
-def update_item(productId: int, updated_product: Products, session: Session = Depends(get_session)):
-    return update_product(session, productId, updated_product)
+def update_item(
+    productId: int, 
+    updated_product: Products, 
+    _: None = Depends(get_current_admin),
+    session: Session = Depends(get_session)
+    ):
+    # Convert price from euros to cents before updating
+    updated_product.price = euros_to_cents(updated_product.price)
+    product = update_product(session, productId, updated_product)
+    # Convert price back to euros for response
+    product.price = cents_to_euros(product.price)
+    return product
 
 @app.post("/ProductManager/", response_model=Products, status_code=status.HTTP_201_CREATED)
-def create_product(product: Products, session: Session = Depends(get_session)):
+def create_product(
+    product: Products, 
+    _: None = Depends(get_current_admin),
+    session: Session = Depends(get_session)
+    ):
     try:
         return create_product_db(session, product)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
 @app.delete("/ProductManager/{productId}")
-def delete_item(productId: int, session: Session = Depends(get_session)):
+def delete_item(
+    productId: int, 
+    _: None = Depends(get_current_admin),
+    session: Session = Depends(get_session)
+    ):
     try:
         return delete_product(session, productId)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 #PRODUCT MANAGER FUNCTIONS//////////////////////////////////////////////////////////////////////////////////////////////////////
 #ACCOUNT MANAGER FUNCTIONS//////////////////////////////////////////////////////////////////////////////////////////////////////
-
+@app.put("/users/update", response_model=dict)
+async def update_user_endpoint(
+    user_data: dict,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # Convert wallet amount from euros to cents before updating
+    if "wallet" in user_data:
+        user_data["wallet"] = euros_to_cents(user_data["wallet"])
+    
+    # Update user
+    updated_user = update_user(session, current_user.id, user_data)
+    
+    # Convert wallet back to euros in response
+    if "wallet" in updated_user:
+        updated_user["wallet"] = cents_to_euros(updated_user["wallet"])
+    
+    return updated_user
+    
 
 #ACCOUNT MANAGER FUNCTIONS//////////////////////////////////////////////////////////////////////////////////////////////////////
 

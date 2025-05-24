@@ -146,7 +146,7 @@ def update_user(session: Session, user_id: int, user_data: dict):
 
     # Update wallet if provided
     if "wallet" in user_data:
-        user_stats.wallet = Decimal(str(user_data["wallet"]))
+        user_stats.wallet = user_data["wallet"]
 
     session.commit()
     session.refresh(user)
@@ -155,7 +155,7 @@ def update_user(session: Session, user_id: int, user_data: dict):
     return {
         "id": user.id,
         "username": user.username,
-        "wallet": float(user_stats.wallet)
+        "wallet": user_stats.wallet
     }
 
 def create_category(session: Session, name: str):
