@@ -15,6 +15,19 @@ class Products(SQLModel, table=True):
     vooraad: int
     korting:int
 
+class productResponse(SQLModel):
+    id: int
+    name: str
+    price: float
+    amount: int
+    category_id: Optional[int] = Field(default=None)
+    calorien: float
+    alcohol: float
+    vooraad: int
+    korting:int
+    discount_price:float
+
+
 class Categories(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
@@ -43,3 +56,13 @@ class UserUpdate(SQLModel):
     username: str
     password: Optional[str] = None
     wallet: int
+
+class Purchase(SQLModel,table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int
+    product_id: int
+    amount: int
+    product_price:int
+    total_price: int
+    discount: int = Field(default=0)
+    purchase_date:date

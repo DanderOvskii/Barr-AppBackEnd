@@ -15,6 +15,13 @@ def get_products(session: Session, categoryId: int = None):
     
     return session.exec(statement).all()
 
+def get_product(session: Session, productId: int = None):
+    if productId is None:
+        return None
+    product = session.get(Products, productId)
+    return(product)
+    
+
 def get_categories(session: Session):
     return session.exec(select(Categories)).all()
 

@@ -2,8 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from database import get_session, init_db
-from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats,update_user,create_category,delete_category
-from models import Products,Categories,CategoryWithProducts,User,UserUpdate
+from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats,update_user,create_category,delete_category,get_product
+from models import Products,Categories,CategoryWithProducts,User,UserUpdate,productResponse
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from auth import create_access_token, token_required, get_current_user, get_current_admin
 from datetime import date
@@ -31,6 +31,10 @@ def cents_to_euros(cents: int) -> float:
 def euros_to_cents(cents: float) -> int:
     """Convert cents to euros with 2 decimal places"""
     return round(cents *100)
+
+def cal_discount_price(price: int, discount: int) -> int:
+    """Calculate the discounted price"""
+    return price - (price * discount // 100)
 
 #LOGIN REGESTRATION FUNCTIONS//////////////////////////////////////////////////////////////////////////////////////////////////////
 @app.post("/register")
@@ -71,17 +75,51 @@ def read_categories(
     ):
     return get_categories(session)
 
-@app.get("/Products/", response_model=list[Products])
+@app.get("/Products/", response_model=list[productResponse])
 def read_items(
     categoryId: int = None, 
     _: None = Depends(token_required),
     session: Session = Depends(get_session),
     ):
     products = get_products(session, categoryId)
+    print("products", products)
     # Convert prices to euros
+    products_response = []
     for product in products:
-        product.price = cents_to_euros(product.price)
-    return products
+        discount_price_cents = cal_discount_price(product.price, product.korting)
+        discount_price = cents_to_euros(discount_price_cents)
+        price = cents_to_euros(product.price)
+        
+
+        products_response.append(
+            productResponse(
+                id=product.id,
+                name=product.name,
+                price=price,
+                amount=product.amount,
+                category_id=product.category_id,
+                calorien=product.calorien,
+                alcohol=product.alcohol,
+                vooraad=product.vooraad,
+                korting=product.korting,
+                discount_price=discount_price
+            )
+        )
+    return products_response
+
+@app.get("/Product/", response_model=Products)
+def read_item(
+    productId: int = None, 
+    _: None = Depends(token_required),
+    session: Session = Depends(get_session),
+    ):
+    product = get_product(session, productId)
+    print("productId",productId)
+    print(product)
+    # Convert prices to euros
+    product.price = cents_to_euros(product.price)
+    return product
+
 
 
 
@@ -185,7 +223,8 @@ def update_item(
     session: Session = Depends(get_session)
     ):
     # Convert price from euros to cents before updating
-    updated_product.price = euros_to_cents(updated_product.price)
+    if updated_product.price is not None:
+        updated_product.price = euros_to_cents(updated_product.price)
     product = update_product(session, productId, updated_product)
     # Convert price back to euros for response
     product.price = cents_to_euros(product.price)
