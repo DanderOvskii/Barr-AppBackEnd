@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field
 from sqlalchemy import Column, DECIMAL
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
 
@@ -64,5 +64,7 @@ class Purchase(SQLModel,table=True):
     amount: int
     product_price:int
     total_price: int
+    total_alcohol: float
+    total_calories: float
     discount: int = Field(default=0)
-    purchase_date:date
+    purchase_date: datetime

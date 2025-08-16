@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from database import get_session, init_db
-from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats,update_user,create_category,delete_category,get_product
+from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats,update_user,create_category,delete_category,get_product,create_purchase,get_user_purchases,get_monthly_stats
 from models import Products,Categories,CategoryWithProducts,User,UserUpdate,productResponse
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from auth import create_access_token, token_required, get_current_user, get_current_admin
@@ -82,7 +82,6 @@ def read_items(
     session: Session = Depends(get_session),
     ):
     products = get_products(session, categoryId)
-    print("products", products)
     # Convert prices to euros
     products_response = []
     for product in products:
@@ -107,17 +106,30 @@ def read_items(
         )
     return products_response
 
-@app.get("/Product/", response_model=Products)
+@app.get("/Product/", response_model=productResponse)
 def read_item(
     productId: int = None, 
     _: None = Depends(token_required),
     session: Session = Depends(get_session),
     ):
     product = get_product(session, productId)
-    print("productId",productId)
-    print(product)
     # Convert prices to euros
-    product.price = cents_to_euros(product.price)
+    discount_price_cents = cal_discount_price(product.price, product.korting)
+    discount_price = cents_to_euros(discount_price_cents)
+    price = cents_to_euros(product.price)
+
+    product = productResponse(
+        id=product.id,
+        name=product.name,
+        price=price,
+        amount=product.amount,
+        category_id=product.category_id,    
+        calorien=product.calorien,
+        alcohol=product.alcohol,
+        vooraad=product.vooraad,
+        korting=product.korting,
+        discount_price=discount_price
+    )
     return product
 
 
@@ -158,6 +170,7 @@ async def get_user_info(
 @app.post("/buy/{product_id}")
 async def buy_product(
     product_id: int,
+    amount: int = 1,  # Added amount parameter with default value
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -171,19 +184,77 @@ async def buy_product(
     if not user_stats:
         raise HTTPException(status_code=404, detail="User stats not found")
     
+    # Calculate total cost
+    discountprice = cal_discount_price(product.price, product.korting)
+    total_cost = discountprice * amount
+    
+    # Check if user has enough money
+    if user_stats.wallet < total_cost:
+        raise HTTPException(status_code=400, detail="Insufficient funds")
+
+    # Register the purchase in the purchase table
+    try:
+        purchase = create_purchase(session, current_user.id, product_id, amount)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Update wallet and product inventory
-    user_stats.wallet -= product.price
-    user_stats.calories += product.calorien
-    user_stats.alcohol += product.amount*product.alcohol/100
-    product.vooraad -= 1
+    user_stats.wallet -= total_cost
+    user_stats.calories += product.calorien * amount
+    user_stats.alcohol += product.amount * product.alcohol / 100 * amount
+    product.vooraad -= amount
     
     session.commit()
     
     return {
         "message": "Purchase successful",
+        "purchase_id": purchase.id,
         "new_balance": cents_to_euros(user_stats.wallet),
-        "product_name": product.name
+        "product_name": product.name,
+        "amount_purchased": amount,
+        "total_cost": cents_to_euros(total_cost),
+        "purchase_date": purchase.purchase_date
+    }
+
+@app.get("/purchases")
+async def get_purchase_history(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Get purchase history for the current user"""
+    purchases = get_user_purchases(session, current_user.id)
+    
+    # Convert prices to euros and add product names
+    purchase_history = []
+    for purchase in purchases:
+        product = session.get(Products, purchase.product_id)
+        purchase_history.append({
+            "id": purchase.id,
+            "product_name": product.name if product else "Unknown Product",
+            "amount": purchase.amount,
+            "product_price": cents_to_euros(purchase.product_price),
+            "total_price": cents_to_euros(purchase.total_price),
+            "discount": purchase.discount,
+            "purchase_date": purchase.purchase_date
+        })
+    
+    return purchase_history
+
+@app.get("/stats/monthly")
+async def get_monthly_stats_endpoint(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Get monthly stats for the current user"""
+    monthly_stats = get_monthly_stats(session, current_user.id)
+    
+
+    
+    return {
+        "total_spent": cents_to_euros(monthly_stats.total_spent),
+        "calories_consumed": round (monthly_stats.total_calories,2),
+        "alcohol_consumed": round( monthly_stats.total_alcohol,2),
+        "products_bought": monthly_stats.total_purchases
     }
        
 

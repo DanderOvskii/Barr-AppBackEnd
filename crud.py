@@ -1,9 +1,9 @@
-from sqlmodel import Session, select
-from models import Products,Categories,CategoryWithProducts,User,UserStats
+from sqlmodel import Session, select,func
+from models import Products,Categories,CategoryWithProducts,User,UserStats,Purchase
 from auth import get_password_hash, verify_password
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
-
+from calendar import monthrange
 def get_products(session: Session, categoryId: int = None):
     statement = (
         select(Products)
@@ -196,3 +196,66 @@ def delete_category(session: Session, category_id: int):
     session.delete(category)
     session.commit()
     return {"message": "category deleted successfully"}
+
+def create_purchase(session: Session, user_id: int, product_id: int, amount: int):
+    """Create a new purchase record"""
+    # Get product to verify it exists and get price info
+    product = get_product(session, product_id)
+    
+    # Calculate prices
+    product_price = product.price
+    discount = product.korting
+    discounted_price = product_price - (product_price * discount // 100)
+    total_price = discounted_price * amount
+    total_alcohol = ((product.alcohol/100)*product.amount) * amount
+    total_calories = product.calorien * amount
+    
+    # Create purchase record
+    purchase = Purchase(
+        user_id=user_id,
+        product_id=product_id,
+        amount=amount,
+        product_price=product_price,
+        total_price=total_price,
+        total_alcohol=total_alcohol,
+        total_calories=total_calories,
+        discount=discount,
+        purchase_date=datetime.now()
+    )
+    
+    session.add(purchase)
+    session.commit()
+    session.refresh(purchase)
+    return purchase
+
+def get_user_purchases(session: Session, user_id: int):
+    """Get all purchases for a specific user, ordered by newest first"""
+    statement = select(Purchase).where(Purchase.user_id == user_id).order_by(Purchase.purchase_date.desc())
+    return session.exec(statement).all()
+
+def get_monthly_stats(session: Session, user_id: int,year: int = None, month: int = None):
+    # Get purchases for the current month
+    if year is None:
+        year = date.today().year
+    if month is None:
+        month = date.today().month
+
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        next_month = datetime(year + 1, 1, 1)
+    else:
+        next_month = datetime(year, month + 1, 1)
+
+    statement = (
+        select( 
+            func.sum(Purchase.total_price).label('total_spent'),
+            func.sum(Purchase.total_calories).label('total_calories'),
+            func.sum(Purchase.total_alcohol).label('total_alcohol'),
+            func.count(Purchase.id).label('total_purchases'))
+        .where(
+            Purchase.user_id == user_id,
+            Purchase.user_id == user_id,
+            Purchase.purchase_date >= start_date,
+            Purchase.purchase_date <= next_month
+        ))
+    return session.exec(statement).first()
