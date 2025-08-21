@@ -27,6 +27,12 @@ class productResponse(SQLModel):
     korting:int
     discount_price:float
 
+class statsResponse(SQLModel):
+    total_spend:int
+    calories_consumed:float
+    alcohol_consumed:float
+    products_bought:int
+
 
 class Categories(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

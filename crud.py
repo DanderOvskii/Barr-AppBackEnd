@@ -1,7 +1,7 @@
 from sqlmodel import Session, select,func
 from models import Products,Categories,CategoryWithProducts,User,UserStats,Purchase
 from auth import get_password_hash, verify_password
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from calendar import monthrange
 def get_products(session: Session, categoryId: int = None):
@@ -233,18 +233,21 @@ def get_user_purchases(session: Session, user_id: int):
     statement = select(Purchase).where(Purchase.user_id == user_id).order_by(Purchase.purchase_date.desc())
     return session.exec(statement).all()
 
-def get_monthly_stats(session: Session, user_id: int,year: int = None, month: int = None):
+def get_stats(session: Session, user_id: int, date:date, period:int):
     # Get purchases for the current month
-    if year is None:
-        year = date.today().year
-    if month is None:
-        month = date.today().month
-
-    start_date = datetime(year, month, 1)
-    if month == 12:
-        next_month = datetime(year + 1, 1, 1)
-    else:
-        next_month = datetime(year, month + 1, 1)
+   
+    if period == 0:  # Day
+        start_date = datetime(date.year, date.month, date.day)
+        end_date = start_date + timedelta(days=1)
+    elif period == 1:  # Month
+        start_date = datetime(date.year, date.month, 1)
+        if date.month == 12:
+            end_date = datetime(date.year + 1, 1, 1)
+        else:
+            end_date = datetime(date.year, date.month + 1, 1)
+    else:  # Year
+        start_date = datetime(date.year, 1, 1)
+        end_date = datetime(date.year + 1, 1, 1)
 
     statement = (
         select( 
@@ -256,6 +259,6 @@ def get_monthly_stats(session: Session, user_id: int,year: int = None, month: in
             Purchase.user_id == user_id,
             Purchase.user_id == user_id,
             Purchase.purchase_date >= start_date,
-            Purchase.purchase_date <= next_month
+            Purchase.purchase_date <= end_date
         ))
     return session.exec(statement).first()

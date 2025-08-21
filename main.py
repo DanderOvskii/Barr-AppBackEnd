@@ -2,8 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 from database import get_session, init_db
-from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats,update_user,create_category,delete_category,get_product,create_purchase,get_user_purchases,get_monthly_stats
-from models import Products,Categories,CategoryWithProducts,User,UserUpdate,productResponse
+from crud import  get_products,get_categories,get_categories_with_products,update_product,create_product_db,delete_product,search_products,create_user,get_user_by_username,authenticate_user,get_user_stats,update_user,create_category,delete_category,get_product,create_purchase,get_user_purchases,get_stats
+from models import Products,Categories,CategoryWithProducts,User,UserUpdate,productResponse,statsResponse
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from auth import create_access_token, token_required, get_current_user, get_current_admin
 from datetime import date
@@ -241,20 +241,30 @@ async def get_purchase_history(
     return purchase_history
 
 @app.get("/stats/monthly")
-async def get_monthly_stats_endpoint(
+async def get_stats_endpoint(
+    date:date,
+    period:int ,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """Get monthly stats for the current user"""
-    monthly_stats = get_monthly_stats(session, current_user.id)
+    stats = get_stats(session, current_user.id, date, period)
+    
+    
+    total_spend=stats.total_spent or 0
+    total_calories=stats.total_calories or 0
+    total_alcohol=stats.total_alcohol or 0
+    total_purchases=stats.total_purchases or 0
+    
+
     
 
     
     return {
-        "total_spent": cents_to_euros(monthly_stats.total_spent),
-        "calories_consumed": round (monthly_stats.total_calories,2),
-        "alcohol_consumed": round( monthly_stats.total_alcohol,2),
-        "products_bought": monthly_stats.total_purchases
+        "total_spent": cents_to_euros(total_spend),
+        "calories_consumed": round (total_calories,2),
+        "alcohol_consumed": round( total_alcohol,2),
+        "products_bought": total_purchases
     }
        
 
